@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Value Awareness — Live</title>
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --card: rgba(0,0,0,0.03);
+    --border: rgba(0,0,0,0.08);
+    --text: #111;
+    --muted: rgba(0,0,0,0.55);
+    --live: #ef4444;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191919;
+      --card: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.08);
+      --text: #e8e8e8;
+      --muted: rgba(255,255,255,0.6);
+    }
+  }
+
+  body {
+    margin: 0;
+    padding: 14px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, Inter, sans-serif;
+  }
+
+  .container {
+    margin: auto;
+    max-width: 320px;
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: var(--card);
+    box-shadow: 0 0 0 1px var(--border);
+    position: relative;
+  }
+
+  .clock {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .title {
+    font-size: 13px;
+    opacity: .75;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: .5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+
+  .row + .row {
+    border-top: 1px solid var(--border);
+  }
+
+  .label { color: var(--muted); }
+  .value { font-variant-numeric: tabular-nums; }
+
+  .day-wrap {
+    margin-top: 14px;
+  }
+
+  .day-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    opacity: .7;
+    margin-bottom: 4px;
+  }
+
+  .day-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .day-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #ef4444);
+    border-radius: 999px;
+    transition: width 0.3s linear;
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="clock" id="clock"></div>
+
+  <div class="title">
+    Current Time Value
+    <span class="live-dot"></span>
+    Live
+  </div>
+
+  <div class="row">
+    <span class="label">1 second</span>
+    <span class="value" id="sec"></span>
+  </div>
+  <div class="row">
+    <span class="label">10 minutes</span>
+    <span class="value" id="tenMin"></span>
+  </div>
+  <div class="row">
+    <span class="label">1 hour</span>
+    <span class="value" id="hour"></span>
+  </div>
+  <div class="row">
+    <span class="label">12 hours</span>
+    <span class="value" id="halfDay"></span>
+  </div>
+  <div class="row">
+    <span class="label">1 day</span>
+    <span class="value" id="day"></span>
+  </div>
+
+  <div class="day-wrap">
+    <div class="day-head">
+      <span>Day completed</span>
+      <span id="dayPercent"></span>
+    </div>
+    <div class="day-bar">
+      <div class="day-fill" id="dayFill"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const EXAM_2026 = new Date("2026-12-20T00:00:00+05:30");
+  const EXAM_2027 = new Date("2027-06-01T00:00:00+05:30");
+
+  function pad(n) {
+    return n.toString().padStart(2, "0");
+  }
+
+  function updateClock() {
+    const now = new Date();
+
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours === 0 ? 12 : hours;
+
+    document.getElementById("clock").textContent =
+      `${pad(hours)}:${pad(minutes)}:${pad(seconds)} ${ampm}`;
+  }
+
+  function format(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+
+    const d = Math.floor(seconds / 86400);
+    seconds %= 86400;
+    const h = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+
+    if (d) return `${d}d ${h}h`;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function updateTimeValue() {
+    const now = new Date();
+    const remaining = (EXAM_2026 - now) / 1000;
+    const penalty = (EXAM_2027 - EXAM_2026) / 1000;
+
+    if (remaining <= 0) return;
+
+    const TVR = (remaining + penalty) / remaining;
+
+    document.getElementById("sec").textContent = format(1 * TVR);
+    document.getElementById("tenMin").textContent = format(600 * TVR);
+    document.getElementById("hour").textContent = format(3600 * TVR);
+    document.getElementById("halfDay").textContent = format(43200 * TVR);
+    document.getElementById("day").textContent = format(86400 * TVR);
+  }
+
+  function updateDayProgress() {
+    const now = new Date();
+    const secondsToday =
+      now.getHours() * 3600 +
+      now.getMinutes() * 60 +
+      now.getSeconds() +
+      now.getMilliseconds() / 1000;
+
+    const percent = (secondsToday / 86400) * 100;
+
+    document.getElementById("dayPercent").textContent =
+      percent.toFixed(2) + "%";
+    document.getElementById("dayFill").style.width = percent + "%";
+  }
+
+  updateClock();
+  updateTimeValue();
+  updateDayProgress();
+
+  setInterval(updateClock, 1000);
+  setInterval(updateTimeValue, 1000);
+  setInterval(updateDayProgress, 100);
+</script>
+
+</body>
+</html>
