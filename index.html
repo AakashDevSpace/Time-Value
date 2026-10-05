@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Time Value Awareness — Live</title>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { ink: 'var(--text)', muted: 'var(--muted)', hairline: 'var(--border)', gold: 'var(--gold)' },
+      fontFamily: { serif: ['Fraunces', 'Georgia', 'serif'] }
+    } }
+  };
+</script>
+
 <style>
   :root {
     --bg: #ffffff;
@@ -12,9 +25,9 @@
     --border: rgba(0,0,0,0.08);
     --text: #111;
     --muted: rgba(0,0,0,0.55);
-    --live: #ef4444;
+    --gold: #a8742f;
+    --gold-soft: #c99338;
   }
-
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #191919;
@@ -22,6 +35,8 @@
       --border: rgba(255,255,255,0.08);
       --text: #e8e8e8;
       --muted: rgba(255,255,255,0.6);
+      --gold: #d9b068;
+      --gold-soft: #e6c27c;
     }
   }
 
@@ -30,139 +45,123 @@
     padding: 14px;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, Inter, sans-serif;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
-  .container {
-    margin: auto;
-    max-width: 320px;
-    border-radius: 14px;
-    padding: 14px 16px;
-    background: var(--card);
-    box-shadow: 0 0 0 1px var(--border);
-    position: relative;
-  }
+  .card { position: relative; overflow: hidden; }
 
-  .clock {
-    position: absolute;
-    top: 12px;
-    right: 16px;
-    font-size: 12px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
+  /* Hairline of light along the top edge — absent until golden hour */
+  .card::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-soft), transparent);
+    opacity: 0; transition: opacity 2.4s ease;
   }
+  .card[data-golden="true"]::before { opacity: .75; }
 
-  .title {
-    font-size: 13px;
-    opacity: .75;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
+  /* Live dot: soft ring instead of a scaling blob */
   .live-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #ef4444;
-    animation: pulse 1.2s ease-in-out infinite;
+    position: relative; width: 6px; height: 6px; border-radius: 9999px;
+    background: #ef4444; transition: background 2s ease;
+  }
+  .live-dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: inherit; animation: ring 2.4s ease-out infinite;
+  }
+  @keyframes ring { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(3); opacity: 0; } }
+  .card[data-golden="true"] .live-dot { background: var(--gold-soft); }
+
+  .row + .row { border-top: 1px solid var(--border); }
+  .value { display: inline-block; transition: color 2s ease; }
+  .card[data-golden="true"] .value { color: var(--gold); }
+
+  /* Motion blur: only when a number actually changes */
+  .value.tick { animation: focus .45s cubic-bezier(.2,.7,.2,1); }
+  @keyframes focus {
+    from { filter: blur(2.5px); opacity: .5; }
+    to   { filter: blur(0);     opacity: 1; }
   }
 
-  @keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.4); opacity: .5; }
-    100% { transform: scale(1); opacity: 1; }
+  /* Day bar: the usual blue-to-red fill, with a gold fill laid beneath it that takes over */
+  .day-bar { position: relative; height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .fill { position: absolute; inset: 0; border-radius: 999px; transition: width .3s linear, opacity 2.4s ease; }
+  .fill.normal { background: linear-gradient(90deg, #3b82f6, #ef4444); }
+  .fill.gold   { background: linear-gradient(90deg, #8a5a1c, #d9b068 70%, #f0d9a0); opacity: 0; }
+  .card[data-golden="true"] .fill.normal { opacity: 0; }
+  .card[data-golden="true"] .fill.gold   { opacity: 1; }
+
+  /* Golden line: takes no space until it is time, then opens and comes into focus */
+  .golden-wrap {
+    display: grid; grid-template-rows: 0fr;
+    transition: grid-template-rows 1.2s cubic-bezier(.3,.7,.2,1);
   }
-
-  .row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    font-size: 13px;
+  .golden-wrap > div { overflow: hidden; }
+  .card[data-golden="true"] .golden-wrap { grid-template-rows: 1fr; }
+  .golden-line {
+    opacity: 0; filter: blur(6px); transform: translateY(4px);
+    transition: opacity 1.6s ease .5s, filter 1.6s ease .5s, transform 1.6s ease .5s;
   }
+  .card[data-golden="true"] .golden-line { opacity: 1; filter: blur(0); transform: none; }
 
-  .row + .row {
-    border-top: 1px solid var(--border);
-  }
-
-  .label { color: var(--muted); }
-  .value { font-variant-numeric: tabular-nums; }
-
-  .day-wrap {
-    margin-top: 14px;
-  }
-
-  .day-head {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    opacity: .7;
-    margin-bottom: 4px;
-  }
-
-  .day-bar {
-    width: 100%;
-    height: 6px;
-    background: var(--border);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-
-  .day-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #ef4444);
-    border-radius: 999px;
-    transition: width 0.3s linear;
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot::after, .value.tick { animation: none; }
+    .golden-wrap, .golden-line, .card::before, .fill { transition-duration: .01s; transition-delay: 0s; }
   }
 </style>
 </head>
 
 <body>
-<div class="container">
+<div class="card mx-auto max-w-[320px] rounded-[14px] px-4 pb-4 pt-3.5" id="card" data-golden="false"
+     style="background: var(--card); box-shadow: 0 0 0 1px var(--border)">
 
-  <div class="clock" id="clock"></div>
-
-  <div class="title">
-    Current Time Value
-    <span class="live-dot"></span>
-    Live
-  </div>
-
-  <div class="row">
-    <span class="label">1 second</span>
-    <span class="value" id="sec"></span>
-  </div>
-  <div class="row">
-    <span class="label">10 minutes</span>
-    <span class="value" id="tenMin"></span>
-  </div>
-  <div class="row">
-    <span class="label">1 hour</span>
-    <span class="value" id="hour"></span>
-  </div>
-  <div class="row">
-    <span class="label">12 hours</span>
-    <span class="value" id="halfDay"></span>
-  </div>
-  <div class="row">
-    <span class="label">1 day</span>
-    <span class="value" id="day"></span>
+  <div class="mb-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-2 text-[13px] text-ink opacity-75">
+      <span>Current Time Value</span>
+      <span class="live-dot"></span>
+      <span>Live</span>
+    </div>
+    <span class="text-xs tabular-nums text-muted" id="clock"></span>
   </div>
 
-  <div class="day-wrap">
-    <div class="day-head">
+  <div class="row flex justify-between py-1.5 text-[13px]">
+    <span class="text-muted">1 second</span><span class="value tabular-nums" id="sec"></span>
+  </div>
+  <div class="row flex justify-between py-1.5 text-[13px]">
+    <span class="text-muted">10 minutes</span><span class="value tabular-nums" id="tenMin"></span>
+  </div>
+  <div class="row flex justify-between py-1.5 text-[13px]">
+    <span class="text-muted">1 hour</span><span class="value tabular-nums" id="hour"></span>
+  </div>
+  <div class="row flex justify-between py-1.5 text-[13px]">
+    <span class="text-muted">12 hours</span><span class="value tabular-nums" id="halfDay"></span>
+  </div>
+  <div class="row flex justify-between py-1.5 text-[13px]">
+    <span class="text-muted">1 day</span><span class="value tabular-nums" id="day"></span>
+  </div>
+
+  <div class="mt-3.5">
+    <div class="mb-1 flex justify-between text-xs text-ink opacity-70">
       <span>Day completed</span>
-      <span id="dayPercent"></span>
+      <span class="tabular-nums" id="dayPercent"></span>
     </div>
     <div class="day-bar">
-      <div class="day-fill" id="dayFill"></div>
+      <div class="fill normal" id="dayFillNormal"></div>
+      <div class="fill gold" id="dayFillGold"></div>
+    </div>
+
+    <div class="golden-wrap" aria-live="polite">
+      <div>
+        <div class="golden-line flex items-baseline justify-between pt-2.5">
+          <span class="font-serif text-[15px] italic text-gold">Golden hour</span>
+          <span class="text-xs tabular-nums text-muted" id="goldLeft"></span>
+        </div>
+      </div>
     </div>
   </div>
-
 </div>
 
 <script>
+  /* ---------- Core mechanics (unchanged) ---------- */
   const EXAM_2026 = new Date("2026-12-20T00:00:00+05:30");
   const EXAM_2027 = new Date("2027-06-01T00:00:00+05:30");
 
@@ -210,11 +209,11 @@
 
     const TVR = (remaining + penalty) / remaining;
 
-    document.getElementById("sec").textContent = format(1 * TVR);
-    document.getElementById("tenMin").textContent = format(600 * TVR);
-    document.getElementById("hour").textContent = format(3600 * TVR);
-    document.getElementById("halfDay").textContent = format(43200 * TVR);
-    document.getElementById("day").textContent = format(86400 * TVR);
+    setValue("sec", format(1 * TVR));
+    setValue("tenMin", format(600 * TVR));
+    setValue("hour", format(3600 * TVR));
+    setValue("halfDay", format(43200 * TVR));
+    setValue("day", format(86400 * TVR));
   }
 
   function updateDayProgress() {
@@ -229,16 +228,51 @@
 
     document.getElementById("dayPercent").textContent =
       percent.toFixed(2) + "%";
-    document.getElementById("dayFill").style.width = percent + "%";
+    document.getElementById("dayFillNormal").style.width = percent + "%";
+    document.getElementById("dayFillGold").style.width = percent + "%";
+  }
+
+  /* ---------- Presentation layer ---------- */
+
+  // Updates a value and blurs it into focus only when the text changes.
+  function setValue(id, text) {
+    const el = document.getElementById(id);
+    if (el.textContent === text) return;
+    const hadText = el.textContent !== "";
+    el.textContent = text;
+    if (!hadText) return;
+    el.classList.remove("tick");
+    void el.offsetWidth;
+    el.classList.add("tick");
+  }
+
+  // Golden hours in minutes from midnight: 5:00–8:30 AM and 5:30–8:30 PM.
+  const GOLDEN = [[300, 510], [1050, 1230]];
+  const card = document.getElementById("card");
+  const goldLeft = document.getElementById("goldLeft");
+
+  function updateGolden() {
+    const now = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    const active = GOLDEN.find(([s, e]) => mins >= s && mins < e);
+
+    if (active) {
+      const left = Math.ceil(active[1] - mins);
+      const h = Math.floor(left / 60), m = left % 60;
+      goldLeft.textContent = (h ? `${h}h ${m}m` : `${m}m`) + " left";
+    }
+    card.dataset.golden = active ? "true" : "false";
   }
 
   updateClock();
   updateTimeValue();
   updateDayProgress();
+  updateGolden();
 
   setInterval(updateClock, 1000);
   setInterval(updateTimeValue, 1000);
   setInterval(updateDayProgress, 100);
+  setInterval(updateGolden, 1000);
 </script>
 
 </body>
